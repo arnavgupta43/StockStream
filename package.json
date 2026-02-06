@@ -1,0 +1,12 @@
+{
+  "name": "stock-stream",
+  "private": true,
+  "workspaces": [
+    "services/*",
+    "shared/*/*"
+  ],
+  "scripts": {
+    "dev": "docker compose -f infra/docker-compose.yml up --build",
+    "down": "docker compose -f infra/docker-compose.yml down -v"
+  }
+}
