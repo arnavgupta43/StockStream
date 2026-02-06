@@ -8,6 +8,8 @@ export async function initDB() {
   pool = new pg.Pool({
     connectionString: url,
   });
+  await pool.query("SELECT 1"); // Test the connection
+  console.log("Database connected");
 }
 export function getDB() {
   if (!pool) {
