@@ -1,7 +1,7 @@
 import crypto from "crypto";
-import { getRedis } from "../lib/redis";
-import { publishEvent } from "../lib/queue";
-import { EVENT_TYPES } from "../../../../shared/common/src/eventTypes";
+import { getRedis } from "../lib/redis.js";
+import { publishEvent } from "../lib/queue.js";
+import { EVENT_TYPES } from "../../../../shared/common/src/index.js";
 
 const HOLD_TTL_SECONDS = 300;
 function uuid() {
@@ -47,7 +47,7 @@ export async function reserve({ sku, qty, user_id, idempotency_key }) {
     tx.decrby(stockKey, qty);
     tx.set(holdKey, JSON.stringify(holdpayload), "EX", HOLD_TTL_SECONDS);
     tx.set(idemKey, hold_id, "EX", 24 * 60 * 60);
-    const result = await tx.execute();
+    const result = await tx.exec();
     if (result) {
       const event_id = uuid();
       await publishEvent({
