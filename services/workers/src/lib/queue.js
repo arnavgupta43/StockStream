@@ -1,17 +1,37 @@
-import pg from "pg";
-let pool;
-export async function initDB() {
-  const url = process.env.DATABASE_URL;
-  if (!url) {
-    throw new Error("DATABASE_URL is not set");
+import { getRedis } from "./redis";
+
+export const STREAM_KEY = "inventory.events";
+export const GROUP_NAME = "inventory.cg";
+export const CONSUMER_NAME = process.env.CONSUMER_NAME || "worker_1";
+
+export async function initStream() {
+  try {
+    const redis = getRedis();
+    await redis.xgroup("CREATE", STREAM_KEY, GROUP_NAME, "0", MKSTREAM);
+    console.log(` [worher] stream group created`);
+  } catch (e) {
+    if (!String(e.message).includes("BUSYGROUP")) throw e;
+    consolelog(`[worker] stream group already exits`);
   }
-  pool = new pg.Pool({
-    connectionString: url,
-  });
 }
-export function getDB() {
-  if (!pool) {
-    throw new Error("Database not initialized");
-  }
-  return pool;
+
+export async function readEvents(params) {
+  const redis = getRedis();
+  redis.xreadgroup(
+    "GROUP",
+    GROUP_NAME,
+    CONSUMER_NAME,
+    "BLOCK",
+    blockMs,
+    "COUNT",
+    10,
+    "STREAMS",
+    STREAM_KEY,
+    ">",
+  );
+}
+
+export async function ackEvet(message_id) {
+  const redis = getRedis();
+  redis.redis.xack(STREAM_KEY, GROUP_NAME, message_id);
 }
