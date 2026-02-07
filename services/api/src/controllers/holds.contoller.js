@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { reserve, cancel, confirm } from "../services/holds.service";
+import { reserve, cancel, confirm } from "../services/holds.service.js";
 
 export async function reserveHold(req, res) {
   try {

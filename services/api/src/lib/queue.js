@@ -10,6 +10,9 @@ export async function publishEvent({ event_id, type, payload }) {
   const redis = getRedis();
   await redis.xadd(
     STREAM_KEY,
+    "MAXLEN",
+    "~",
+    10000,
     "*",
     "event_id",
     event_id,

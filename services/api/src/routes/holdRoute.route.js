@@ -3,7 +3,7 @@ import {
   reserveHold,
   confirmHold,
   cancelHold,
-} from "../controllers/holds.contoller";
+} from "../controllers/holds.contoller.js";
 
 export const holdsRouter = Router();
 holdsRouter.post("/reserve", reserveHold);

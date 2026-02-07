@@ -1,8 +1,8 @@
 // import app and other fuctions and start the server
-import { createApp } from "./app";
-import { initDB } from "./lib/db";
-import { initRedis } from "./lib/redis";
-import { initStream } from "./lib/queue";
+import { createApp } from "./app.js";
+import { initDB } from "./lib/db.js";
+import { initRedis } from "./lib/redis.js";
+import { initStream } from "./lib/queue.js";
 const PORT = process.env.PORT || 3000;
 async function main() {
   await initDB();
