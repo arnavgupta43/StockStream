@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS holds (
   status TEXT NOT NULL CHECK (status IN ('ACTIVE','CONFIRMED','CANCELLED','EXPIRED')),
   expires_at TIMESTAMPTZ NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  idempotency_key TEXT UNIQUEw
+  idempotency_key TEXT UNIQUE
 );
 
 CREATE INDEX IF NOT EXISTS idx_holds_status_expires
