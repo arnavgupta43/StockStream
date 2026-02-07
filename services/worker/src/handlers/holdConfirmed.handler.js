@@ -1,5 +1,7 @@
 import { getDb } from "../lib/db.js";
-
+function uuid() {
+  return crypto.randomUUID();
+}
 export async function handleHoldConfirm(payload) {
   const db = getDb();
   const { event_id, hold_id, payment_ref } = payload;
@@ -9,8 +11,8 @@ export async function handleHoldConfirm(payload) {
       `INSERT INTO processed_events(event_id,event_type) VALUES($1,'HOLD_CONFIRM') on conflict (event_id) do nothing`,
       [event_id],
     );
-    const res = db.query(
-      `UPDATE holds SET status='CONFIRMED' where hold_id=$1 AND STATUS='ACTIVE and expires_at> now() RETURNING user_id,sku,qty`,
+    const res = await db.query(
+      `UPDATE holds SET status='CONFIRMED' where hold_id=$1 AND STATUS='ACTIVE' and expires_at > now() RETURNING user_id,sku,qty`,
       [hold_id],
     );
     if (res.rowCount == 1) {

@@ -34,5 +34,5 @@ export async function readEvents(blockMs = 5000) {
 
 export async function ackEvent(message_id) {
   const redis = getRedis();
-  redis.redis.xack(STREAM_KEY, GROUP_NAME, message_id);
+  redis.xack(STREAM_KEY, GROUP_NAME, message_id);
 }
