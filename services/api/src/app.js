@@ -1,5 +1,5 @@
 import express from "express";
-import { holdsRouter } from "./routes/holdRoute.route";
+import { holdsRouter } from "./routes/holdRoute.route.js";
 export function createApp() {
   const app = express();
   app.use(express.json());
