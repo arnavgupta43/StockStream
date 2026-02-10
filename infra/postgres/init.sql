@@ -1,7 +1,7 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE IF NOT EXISTS holds (
-  hold_id UUID PRIMARY KEY,
+  hold_id TEXT PRIMARY KEY,
   sku TEXT NOT NULL,
   qty INT NOT NULL CHECK (qty > 0),
   user_id TEXT NOT NULL,
@@ -16,7 +16,7 @@ ON holds(status, expires_at);
 
 CREATE TABLE IF NOT EXISTS orders (
   order_id UUID PRIMARY KEY,
-  hold_id UUID UNIQUE NOT NULL REFERENCES holds(hold_id),
+  hold_id TEXT UNIQUE NOT NULL REFERENCES holds(hold_id),
   user_id TEXT NOT NULL,
   sku TEXT NOT NULL,
   qty INT NOT NULL CHECK (qty > 0),

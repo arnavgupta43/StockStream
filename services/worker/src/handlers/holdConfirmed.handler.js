@@ -16,7 +16,7 @@ export async function handleHoldConfirm(payload) {
       [hold_id],
     );
     if (res.rowCount == 1) {
-      const { user_id, sku, qty } = res.row[0];
+      const { user_id, sku, qty } = res.rows[0];
       await db.query(
         `INSERT INTO orders(order_id, hold_id, user_id, sku, qty, status, payment_ref)
          VALUES ($1,$2,$3,$4,$5,'PAID',$6)

@@ -28,7 +28,7 @@ export async function confirmHold(req, res) {
     res.status(500).json({ message: "internal error" });
   }
 }
-export async function cancelHold(params) {
+export async function cancelHold(req, res) {
   try {
     const result = await cancel(req.body);
     return res.status(200).json(result);
