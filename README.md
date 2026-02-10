@@ -2,206 +2,171 @@ High Conurency Inventory Management System Using Redis and PostgreSQL
 ![Overview](https://res.cloudinary.com/dq9kpvvug/image/upload/v1770382370/Screenshot_2026-02-05_154914_w2vtr3.png)
 A high-performance event-driven inventory reservation system designed to prevent overselling during high-concurrency e-commerce events (flash sales, limited drops, ticket booking, etc.).
 
-The system uses Redis (hot-path concurrency control) and PostgreSQL (durable system of record) connected through Redis Streams for asynchronous persistence.
+The system uses **Redis** (hot-path concurrency control) and **PostgreSQL** (durable system of record) connected through **Redis Streams** for asynchronous persistence.
 
-🚀 Project Overview
+---
+
+## Project Overview
 
 Traditional inventory systems often fail under load because:
 
-Database row locks create contention.
+- **Database row locks** create contention.
+- **High concurrent requests** slow down checkout.
+- **Overselling** happens due to race conditions.
 
-High concurrent requests slow down checkout.
+### StockStream solves this by:
 
-Overselling happens due to race conditions.
+- **Moving reservation logic to Redis** (atomic operations)
+- **Using Streams + Worker** for async persistence
+- **Ensuring no oversell** while keeping API latency low
 
-StockStream solves this by:
+## Architecture & System Design
 
-✅ Moving reservation logic to Redis (atomic operations)
-✅ Using Streams + Worker for async persistence
-✅ Ensuring no oversell while keeping API latency low
+### 🏗 High Level Flow
 
-🧠 Architecture & System Design
-🏗 High Level Flow
-Client
-↓
-API Service (Node.js + Express)
-↓
-Redis
-├── stock counters
-├── hold objects (TTL)
-└── Stream (inventory.events)
-↓
-Worker Service
-↓
-PostgreSQL
+````mermaid
+graph TD
+    A[Client] --> B[API Service: Node.js + Express]
+    B --> C[Redis]
 
-⚡ Core Components
-1️⃣ API Service
+    subgraph Redis_Components [Redis Storage]
+    C --> C1[Stock Counters]
+    C --> C2[Hold Objects: TTL]
+    C --> C3[Stream: inventory.events]
+    end
 
-Handles user actions:
+    C3 --> D[Worker Service]
+    D --> E[(PostgreSQL)]
 
-Reserve inventory
+## ⚡ Core Components
 
-Confirm purchase
+### 1️⃣ API Service
+Handles user actions such as **Reserve inventory**, **Confirm purchase**, and **Cancel reservation**.
 
-Cancel reservation
+* **Atomic stock decrement:** Managed directly in Redis to prevent race conditions.
+* **Hold creation:** Implements TTL (Time-To-Live) for temporary locks.
+* **Event publishing:** Pushes data to Redis Streams.
+* **Fast response:** Database operations are removed from the critical path to minimize latency.
 
-Responsibilities:
+---
 
-Atomic stock decrement in Redis
+### 2️⃣ Redis (Hot Path Engine)
+Redis serves as the high-performance layer for real-time state management.
 
-Hold creation with TTL
+| Key | Purpose |
+| :--- | :--- |
+| `stock:{sku}` | Tracks available inventory levels |
+| `hold:{hold_id}` | Manages temporary reservations with TTL |
+| `idem:{key}` | Ensures request idempotency |
+| `inventory.events` | The event stream for the Worker Service |
 
-Event publishing to Redis Streams
+**Why Redis?** It provides atomic operations and sub-millisecond latency, effectively preventing PostgreSQL lock contention during high-traffic bursts.
 
-Fast response (DB not on critical path)
+---
 
-2️⃣ Redis (Hot Path Engine)
+### 3️⃣ Worker Service
+An asynchronous consumer that processes the Redis Stream to maintain the system of record.
 
-Redis stores:
+* **Events Processed:** `HOLD_CREATED`, `HOLD_CONFIRMED`, `HOLD_CANCELLED`.
+* **Responsibilities:** * Updating the `holds` table in the database.
+    * Generating permanent `orders`.
+    * Deduplicating events to ensure exactly-once processing.
+    * Maintaining **eventual consistency** between Redis and PostgreSQL.
 
-Key Purpose
-stock:{sku} Available inventory
-hold:{hold_id} Temporary reservation
-idem:{key} Idempotency mapping
-inventory.events Event stream
+---
 
-Why Redis?
+### 4️⃣ PostgreSQL (Durable Store)
+The final source of truth for all transactional data.
 
-Atomic operations
+* **`holds`**: Tracks the lifecycle of every reservation.
+* **`orders`**: Stores finalized purchase records.
+* **`processed_events`**: Used for idempotent stream processing to ensure data integrity.
 
-Extremely low latency
+## 🔄 Consistency Model
 
-Prevents DB lock contention
+### Strong Consistency (Inventory Safety)
+The reservation logic utilizes **Redis atomic operations** to guarantee that **stock never goes below zero**. This ensures zero overselling, even under extreme high-concurrency scenarios.
 
-3️⃣ Worker Service
+### Eventual Consistency (Persistence)
+The data flow from **Redis → Worker → Postgres** is asynchronous.
+* **Immediate Response:** The API responds to the user as soon as the Redis operation is successful.
+* **Lagged Persistence:** Database updates happen shortly after via the worker.
+* **Benefit:** This architecture significantly reduces API latency and acts as a buffer to absorb massive traffic spikes.
 
-Consumes Redis Stream events and writes durable state:
+---
 
-Events processed:
+## 📡 Event Driven Design
 
-HOLD_CREATED
+The system communicates state changes through structured events. Below is an example of a payload within the **Redis Stream**:
 
-HOLD_CONFIRMED
-
-HOLD_CANCELLED
-
-Responsibilities:
-
-Insert/update holds table
-
-Create orders
-
-Deduplicate events
-
-Maintain eventual consistency
-
-4️⃣ PostgreSQL (Durable Store)
-
-Tables:
-
-holds -> reservation lifecycle
-orders -> completed purchases
-processed_events -> idempotent stream processing
-
-Postgres acts as the source of truth.
-
-🔄 Consistency Model
-Strong Consistency (Inventory Safety)
-
-Reservation logic uses Redis atomic operations to guarantee:
-
-Stock never goes below zero.
-
-This ensures no overselling even under concurrency.
-
-Eventual Consistency (Persistence)
-
-Redis → Worker → Postgres is asynchronous.
-
-Meaning:
-
-API responds immediately.
-
-DB updates happen shortly after.
-
-This reduces latency and absorbs traffic spikes.
-
-📡 Event Driven Design
-
-Example event in Redis Stream:
-
+```json
 {
-"event_id": "uuid",
-"type": "HOLD_CREATED",
-"payload": {
-"hold_id": "H-12345",
-"sku": "iphone_15_pro_256",
-"qty": 1
+  "event_id": "uuid",
+  "type": "HOLD_CREATED",
+  "payload": {
+    "hold_id": "H-12345",
+    "sku": "iphone_15_pro_256",
+    "qty": 1
+  }
 }
-}
 
-Worker uses:
+### 🔄 Reliability & Delivery
+The Worker ensures **at-least-once delivery** with **idempotent writes** by leveraging:
 
-XREADGROUP
-XACK
-Processed Events Table
+* **`XREADGROUP`**: For persistent consumer group management and load balancing.
+* **`XACK`**: To acknowledge successful processing and remove items from the Pending Entries List (PEL).
+* **Processed Events Table**: A deduplication layer in PostgreSQL to prevent duplicate processing of the same `event_id`.
 
-to ensure at-least-once delivery with idempotent writes.
+---
 
-🧰 Tech Stack
+## 🧰 Tech Stack
 
-Node.js (ESM)
+| Component | Technology |
+| :--- | :--- |
+| **Runtime** | Node.js (ESM) |
+| **Web Framework** | Express.js |
+| **In-Memory Store** | Redis 7 (Streams) |
+| **Database** | PostgreSQL 16 |
+| **Containerization** | Docker Compose |
+| **Database Driver** | `pg` (node-postgres) |
 
-Express.js
+---
 
-Redis 7 (Streams)
+## 📁 Project Structure
 
-PostgreSQL 16
-
-Docker Compose
-
-pg (node-postgres)
-
-📁 Project Structure
+```text
 services/
-api/
-worker/
-shared/
-infra/
+├── api/          # HTTP layer + Redis hot path logic
+├── worker/       # Stream consumer & DB persistence
+├── shared/       # Event contracts & shared types
+└── infra/        # Docker Compose & SQL DB schema
 
-api/ → HTTP layer + Redis hot path
+## ⚙️ Setup & Run Instructions
 
-worker/ → Stream consumer
+### 1️⃣ Requirements
+* **Docker Desktop**
+* **Node.js** (for local development only)
+* **PowerShell / Bash**
 
-shared/ → event contracts
+---
 
-infra/ → docker-compose & DB schema
+### 2️⃣ Start the System
+Run the following command from the project root to orchestrate the environment:
 
-⚙️ Setup & Run Instructions
-1️⃣ Requirements
-
-Docker Desktop
-
-Node.js (for local dev only)
-
-PowerShell / Bash
-
-2️⃣ Start the system
-
-From project root:
-
+```bash
 docker compose -f infra/docker-compose.yml up --build
+When you run the build command, Docker will automatically perform the following steps:
 
-Docker will automatically:
+* **Pull** the official Redis and Postgres images from Docker Hub.
+* **Build** the custom local images for the API and Worker services.
+* **Start** all services and link them through the internal network.
 
-Pull Redis & Postgres images
+---
 
-Build API and Worker images
+### 3️⃣ Verify Containers
+Once the startup process completes, check the status of your containers to ensure everything is running correctly:
 
-Start all services
-
-3️⃣ Verify containers
+```bash
 docker ps
 
 Expected:
@@ -336,3 +301,4 @@ Stream processing
 Idempotency patterns
 
 High-concurrency inventory design
+````
