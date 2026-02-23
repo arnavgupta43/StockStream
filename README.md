@@ -1,6 +1,7 @@
 # High Concurrency Inventory Management System (Redis + PostgreSQL)
 
 ![Overview](https://res.cloudinary.com/dq9kpvvug/image/upload/v1770382370/Screenshot_2026-02-05_154914_w2vtr3.png)
+![Overview](https://res.cloudinary.com/dq9kpvvug/image/upload/v1771827264/grafana_m95ln3.png)
 
 A high-performance, event-driven inventory reservation system designed to prevent overselling during high-concurrency e-commerce events (flash sales, limited drops, ticket booking, etc.).
 
